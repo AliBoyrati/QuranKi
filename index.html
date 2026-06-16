@@ -1544,7 +1544,23 @@ function getDue(cards,pages){
   return due;
 }
 
-function getUpcomingEntries(){
+function dueCoverage(duePages){
+  const coverage={surahs:new Set(),pageSurahs:new Set()};
+  for(const item of buildRatingQueue(duePages)){
+    const surah=item.surah||getSurah(item.page);
+    if(item.cardType==='surah')coverage.surahs.add(surah);
+    coverage.pageSurahs.add(`${item.page}:${surah}`);
+  }
+  return coverage;
+}
+
+function isCoveredByDue(entry,coverage){
+  const surah=entry.surah||getSurah(entry.page);
+  if(coverage.surahs.has(surah))return true;
+  return entry.cardType!=='surah'&&coverage.pageSurahs.has(`${entry.page}:${surah}`);
+}
+
+function getUpcomingEntries(excludeDuePages=[]){
   const entries=[], seenSurahs=new Set();
   const add=(due, page, surah, cardType='page')=>{if(due)entries.push({due,page,surah,cardType});};
   for(const p of S.pages){
@@ -1572,13 +1588,17 @@ function getUpcomingEntries(){
       }
     }
   }
+  if(excludeDuePages.length){
+    const coverage=dueCoverage(excludeDuePages);
+    return entries.filter(entry=>!isCoveredByDue(entry,coverage));
+  }
   return entries;
 }
-function getUpcoming(){
-  return getUpcomingEntries().reduce((acc,e)=>{if(!acc[e.due])acc[e.due]=0;acc[e.due]++;return acc;},{});
+function getUpcoming(excludeDuePages=[]){
+  return getUpcomingEntries(excludeDuePages).reduce((acc,e)=>{if(!acc[e.due])acc[e.due]=0;acc[e.due]++;return acc;},{});
 }
-function getUpcomingByDate(){
-  return getUpcomingEntries().reduce((acc,e)=>{if(!acc[e.due])acc[e.due]=[];acc[e.due].push(e);return acc;},{});
+function getUpcomingByDate(excludeDuePages=[]){
+  return getUpcomingEntries(excludeDuePages).reduce((acc,e)=>{if(!acc[e.due])acc[e.due]=[];acc[e.due].push(e);return acc;},{});
 }
 
 // ─── Utils ────────────────────────────────────────────────────────────────────
@@ -2105,6 +2125,20 @@ function renderDueOverview(duePages){
         if(!surahMap[s])surahMap[s]=[];surahMap[s].push(p);
       }
     }
+    if(juz===30){
+      const dueSurahs=[...new Set(buildRatingQueue(pages).map(item=>item.surah||getSurah(item.page)))].sort((a,b)=>a-b);
+      return dueSurahs.map(s=>{
+        const sp=getSurahPages(s).filter(p=>getJuz(p)===30&&isSurahPageSelected(s,p));
+        const reviewPages=sp.length?sp:getSurahPages(s);
+        return`<div class="juz-overview-card" onclick="startRatingSurah(${s})">
+          <div class="juz-overview-top">
+            <span class="juz-overview-label">Juz ${juz}</span>
+            <span class="juz-overview-count">${reviewPages.length} page${reviewPages.length>1?'s':''} ›</span>
+          </div>
+          <div class="juz-overview-surahs">${SURAH_NAMES[s]}</div>
+        </div>`;
+      }).join('');
+    }
     // Group consecutive surah numbers into runs, show as "First → Last"
     const surahNums=Object.keys(surahMap).map(Number).sort((a,b)=>a-b);
     const runs=[];let rs=surahNums[0],re=surahNums[0];
@@ -2251,7 +2285,7 @@ function render(){
 
   // HOME
   if(S.screen==='home'){
-    const upcomingByDate=getUpcomingByDate();
+    const upcomingByDate=getUpcomingByDate(due);
     const futureDates=Object.keys(upcomingByDate).filter(d=>d>t).sort().slice(0,3);
 
     app.innerHTML=`<div class="top-bar home-top-bar"><h1>QuranKi</h1><button class="top-btn" onclick="goMore()"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><line x1="2" y1="5" x2="18" y2="5"/><line x1="2" y1="10" x2="18" y2="10"/><line x1="2" y1="15" x2="18" y2="15"/><circle cx="7" cy="5" r="2.2" fill="var(--bg)"/><circle cx="13" cy="10" r="2.2" fill="var(--bg)"/><circle cx="8" cy="15" r="2.2" fill="var(--bg)"/></svg></button></div>
