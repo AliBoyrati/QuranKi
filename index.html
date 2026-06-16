@@ -1960,8 +1960,11 @@ function startRatingSingle(p){
   S.screen='rating';render();
 }
 function startRatingSurah(s){
-  S.ratingQueue=[{page:SURAH_STARTS[s],surah:s,cardType:'surah'}];
-  S.ratingIdx=0;S.ratingDate=today();S.pageRatings={};S.surahRatings={};S.ratingHistory=[];S.pendingRating=null;S.revealedReviewPages=new Set();
+  S.ratingDate=today();
+  const queue=buildRatingQueue(getDue(S.cards,S.pages));
+  const startIdx=queue.findIndex(item=>(item.surah||getSurah(item.page))===s);
+  S.ratingQueue=startIdx>=0?queue.slice(startIdx):[{page:SURAH_STARTS[s],surah:s,cardType:'surah'}];
+  S.ratingIdx=0;S.pageRatings={};S.surahRatings={};S.ratingHistory=[];S.pendingRating=null;S.revealedReviewPages=new Set();
   S.selectMode=false;
   S.screen='rating';render();
 }
