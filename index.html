@@ -1434,8 +1434,10 @@ function getMemorizedShortSurahs(pages){ const r=new Set(); for(const p of pages
 
 function buildRatingQueue(duePages) {
   const queue = [], seenSurahs = new Set();
+  const reviewDate=S.ratingDate||today();
   const addSurahCard=s=>{
     if(seenSurahs.has(s)||S.retiredSurahs.has(s)||!S.surahCards[s])return;
+    if(S.surahCards[s].due>reviewDate)return;
     seenSurahs.add(s);
     queue.push({page:SURAH_STARTS[s],surah:s,cardType:'surah'});
   };
@@ -1948,6 +1950,9 @@ function exitRating(){
   if(S.pendingRating)commitCurrentRating(S.pendingRating);
   S.screen='home'; clearRatingSession(); render();
 }
+function savePendingRatingOnLeave(){
+  if(S.screen==='rating'&&S.pendingRating)commitCurrentRating(S.pendingRating);
+}
 function startRatingSingle(p){
   S.ratingQueue=buildRatingQueue([p]);
   S.ratingIdx=0;S.ratingDate=today();S.pageRatings={};S.surahRatings={};S.ratingHistory=[];S.pendingRating=null;S.revealedReviewPages=new Set();
@@ -2429,6 +2434,9 @@ function render(){
 
 applyTheme();
 render();
+
+window.addEventListener('pagehide', savePendingRatingOnLeave);
+window.addEventListener('beforeunload', savePendingRatingOnLeave);
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
