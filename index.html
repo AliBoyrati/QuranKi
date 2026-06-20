@@ -732,9 +732,9 @@ const FIRST_VERSE = {
   92: "وَٱلَّيْلِ إِذَا يَغْشَىٰ ۝١",
   93: "وَٱلضُّحَىٰ ۝١",
   94: "أَلَمْ نَشْرَحْ لَكَ صَدْرَكَ ۝١",
-  95: "بِّسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ وَٱلتِّينِ وَٱلزَّيْتُونِ ۝١",
+  95: "وَٱلتِّينِ وَٱلزَّيْتُونِ ۝١",
   96: "ٱقْرَأْ بِٱسْمِ رَبِّكَ ٱلَّذِى خَلَقَ ۝١",
-  97: "بِّسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ إِنَّآ أَنزَلْنَٰهُ فِى لَيْلَةِ ٱلْقَدْرِ ۝١",
+  97: "إِنَّآ أَنزَلْنَٰهُ فِى لَيْلَةِ ٱلْقَدْرِ ۝١",
   98: "لَمْ يَكُنِ ٱلَّذِينَ كَفَرُوا۟ مِنْ أَهْلِ ٱلْكِتَٰبِ وَٱلْمُشْرِكِينَ مُنفَكِّينَ حَتَّىٰ تَأْتِيَهُمُ ٱلْبَيِّنَةُ ۝١",
   99: "إِذَا زُلْزِلَتِ ٱلْأَرْضُ زِلْزَالَهَا ۝١",
   100: "وَٱلْعَٰدِيَٰتِ ضَبْحًۭا ۝١",
@@ -1342,11 +1342,11 @@ function surahsByJuz(){
 function getPageVerse(p, targetSurah=null){
   const starts=PAGE_SURAH_STARTS[p];
   if(starts&&starts.length){
-    if(targetSurah&&starts.includes(targetSurah))return FIRST_VERSE[targetSurah]||null;
+    if(targetSurah&&starts.includes(targetSurah))return stripBasmalaPrefix(FIRST_VERSE[targetSurah])||null;
     // Page starts a different surah — if we have a target, the top of this page
     // is still the target surah's continuation, not the new surah's opening
-    if(targetSurah)return PAGE_CONTINUATION_VERSE[p]||FIRST_VERSE[starts[0]]||null;
-    return FIRST_VERSE[starts[0]]||null;
+    if(targetSurah)return PAGE_CONTINUATION_VERSE[p]||stripBasmalaPrefix(FIRST_VERSE[starts[0]])||null;
+    return stripBasmalaPrefix(FIRST_VERSE[starts[0]])||null;
   }
   return PAGE_CONTINUATION_VERSE[p]||null;
 }
@@ -1677,17 +1677,21 @@ function toggleDarkMode(){S.settings.darkMode=!S.settings.darkMode;saveSettings(
 function normalizePageText(text){return String(text||'').replace(/\s+/g,' ').trim();}
 function stripArabicDiacritics(text){return String(text||'').normalize('NFKD').replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g,'');}
 function normalizeArabicForBasmala(text){return stripArabicDiacritics(text).replace(/\u0671/g,'\u0627').replace(/\s+/g,' ').trim();}
+function splitBasmalaPrefix(value){
+  const text=normalizePageText(value);
+  const words=text.split(/\s+/);
+  const isBasmala=words.length>=4&&normalizeArabicForBasmala(words.slice(0,4).join(' '))==='بسم الله الرحمن الرحيم';
+  return isBasmala?{basmala:words.slice(0,4).join(' '),rest:words.slice(4).join(' ')}:{basmala:'',rest:text};
+}
+function stripBasmalaPrefix(value){return splitBasmalaPrefix(value).rest;}
 function toArabicIndicNumber(value){return String(value).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);}
 function ayahMark(number){const n=toArabicIndicNumber(number);return `<span class="ayah-mark" aria-label="Ayah ${number}"><span class="ayah-symbol" aria-hidden="true">۝</span><span class="ayah-number">${n}</span></span>`;}
 function stripHtml(value){const el=document.createElement('div');el.innerHTML=String(value||'');return normalizePageText(el.textContent||'');}
 function pageTextHasAyahMarks(value){return /class=["']ayah-mark["']|class=["']ayah-symbol["']|۝|﴿[٠-٩0-9]+﴾/.test(String(value||''));}
-const BASMALA_RE=/^((?:بِسْمِ|بسم)\s+(?:[ٱا]?للَّهِ|الله)\s+(?:[ٱا]?لرَّحْمَـ?ٰنِ|الرحمن)\s+(?:[ٱا]?لرَّحِيمِ|الرحيم))(?:\s+|$)/u;
 function formatQuranComAyahText(value){
-  const text=normalizePageText(value);
-  const match=text.match(BASMALA_RE);
-  if(!match)return escapeHtml(text);
-  const rest=normalizePageText(text.slice(match[0].length));
-  return `<span class="basmala-line">${escapeHtml(match[1])}</span>${rest?escapeHtml(rest):''}`;
+  const {basmala,rest}=splitBasmalaPrefix(value);
+  if(!basmala)return escapeHtml(rest);
+  return `<span class="basmala-line">${escapeHtml(basmala)}</span>${rest?escapeHtml(rest):''}`;
 }
 function formatPageAyahs(ayahs){
   return ayahs.map(a=>{

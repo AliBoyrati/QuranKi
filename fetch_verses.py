@@ -5,6 +5,7 @@ Fetch correct verse text from alquran.cloud API and update FIRST_VERSE in index.
 import json
 import re
 import time
+import unicodedata
 import urllib.request
 import urllib.error
 
@@ -25,6 +26,16 @@ def fetch_surah(n, retries=3):
             else:
                 raise
 
+def normalize_arabic(text):
+    decomposed = unicodedata.normalize('NFKD', text)
+    return ''.join(c for c in decomposed if unicodedata.category(c) != 'Mn').replace('ٱ', 'ا')
+
+def strip_basmala(text):
+    words = text.split()
+    if len(words) >= 4 and normalize_arabic(' '.join(words[:4])) == 'بسم الله الرحمن الرحيم':
+        return ' '.join(words[4:])
+    return text
+
 first_verses = {}
 
 for surah_num in range(1, 115):
@@ -38,14 +49,8 @@ for surah_num in range(1, 115):
     else:
         ayah = ayahs[0]
         text = ayah['text']
-        # The API prepends the Basmala to verse 1 of every surah.
-        # Strip it: Basmala always starts with بِسْمِ and ends with حِيمِ
-        # Find the end of the Basmala (first occurrence of حِيمِ) and strip.
-        import re as _re
-        if text.startswith('بِسْمِ'):
-            m = _re.search(r'حِيمِ\s*', text)
-            if m:
-                text = text[m.end():].strip()
+        # The API prepends the Basmala with varying diacritic ordering.
+        text = strip_basmala(text)
 
     verse_num = ayah['numberInSurah']
     marker = '۝' + to_arabic_num(verse_num)
