@@ -1364,6 +1364,12 @@ function formatPageRuns(pages){
 }
 function pageCountLabel(count){return `${count} ${count===1?'page':'pages'}`;}
 
+function surahStartSpan(s){
+  const start=SURAH_STARTS[s];
+  const next=SURAH_STARTS[s+1];
+  return next===undefined?1:Math.max(1,next-start);
+}
+
 function pageSurahs(p){return SURAH_SORTED.map(s=>s.num).filter(s=>getSurahPages(s).includes(p));}
 function pageSelectionKey(s,p){return `${s}:${p}`;}
 function isSharedSurahPage(s,p){return pageSurahs(p).length>1&&getSurahPages(s).includes(p);}
@@ -1420,8 +1426,8 @@ function sectionLabel(sectionKey,pages){const all=new Set();for(const p of pages
 
 // Short surah = multiple surahs share its start page (e.g. Al-Ikhlas, Al-Falaq, An-Nas all on page 604)
 function isShortSurah(s){ return (PAGE_SURAH_STARTS[SURAH_STARTS[s]]||[]).length>1; }
-// Surahs shorter than 3 pages are reviewed as one surah-level card instead of page-by-page.
-function isSurahCard(s){ return getSurahPages(s).length<3; }
+// Use start-to-start distance so a shared final page does not inflate a short surah.
+function isSurahCard(s){ return surahStartSpan(s)<3; }
 function isWholeSurahMemorized(s,pages=S.pages){const sp=getSurahPages(s);return sp.length>0&&sp.every(p=>isSurahPageSelected(s,p,pages));}
 function compactSurahsForPage(p,pages=S.pages){
   const r=[];
@@ -1764,23 +1770,14 @@ function findBasmalaStart(words){
   }
   return -1;
 }
-function findBasmalaRange(words, first){
+function findBasmalaRange(words){
   const explicitStart=findBasmalaStart(words);
   if(explicitStart>=0)return {start:explicitStart,end:Math.min(explicitStart+4,words.length)};
-  if(!first||first.ayah!==1||first.surah===1||first.surah===9)return null;
-  let start=-1, count=0;
-  for(let i=0;i<words.length;i++){
-    const w=words[i];
-    if(w.end||w.ayah!==1||w.surah!==first.surah)continue;
-    if(start<0)start=i;
-    count++;
-    if(count===4)return {start,end:i+1};
-  }
   return null;
 }
 function lineHasBasmala(line){
   const words=line.words||[];
-  return !!line.basmala || words.some(w=>w.basmala) || !!findBasmalaRange(words,words[0]);
+  return !!line.basmala || words.some(w=>w.basmala) || !!findBasmalaRange(words);
 }
 function injectBismallahs(lines){
   const result=[];
@@ -1790,7 +1787,7 @@ function injectBismallahs(lines){
       const recent=result.slice(-2);
       const hasBasmala=recent.some(lineHasBasmala);
       if(!hasBasmala){
-        const basRange=findBasmalaRange(line.words||[],first);
+        const basRange=findBasmalaRange(line.words||[]);
         if(basRange){
           // API line contains bismillah — split it out as its own non-verse line.
           // Bismillah is 4 Arabic words; force ayah:0, end:false so no verse marker appears.
